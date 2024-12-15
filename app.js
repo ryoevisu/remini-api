@@ -47,63 +47,67 @@ app.get('/', (req, res) => {
   });
 });
 
-// Remini Image Enhancement API Endpoint
+// Shared enhancement logic
+async function enhanceImage(url) {
+  // Validate URL input
+  if (!url) {
+    throw new Error('URL is required');
+  }
+
+  // Check URL validity
+  if (!isValidUrl(url)) {
+    throw new Error('Invalid URL format');
+  }
+
+  // Call Remini enhancement
+  let enhancedImageUrl;
+  try {
+    enhancedImageUrl = await remini(url);
+  } catch (reminiError) {
+    console.error('Remini Enhancement Specific Error:', reminiError);
+    throw new Error('Failed to enhance the image');
+  }
+
+  // Validate enhanced image URL
+  if (!enhancedImageUrl || !isValidUrl(enhancedImageUrl)) {
+    throw new Error('Enhanced image URL is invalid');
+  }
+
+  // Get image size
+  const image_size = await getFileSize(enhancedImageUrl);
+
+  return {
+    image_data: enhancedImageUrl,
+    image_size: image_size
+  };
+}
+
+// POST endpoint for image enhancement
 app.post('/enhance-image', async (req, res) => {
   try {
-    // Extract URL from request body
     const { url } = req.body;
-
-    // Validate URL input
-    if (!url) {
-      return res.status(400).json({ 
-        error: 'URL_REQUIRED',
-        message: 'Please provide an image URL in the request body'
-      });
-    }
-
-    // Check URL validity
-    if (!isValidUrl(url)) {
-      return res.status(400).json({
-        error: 'INVALID_URL',
-        message: 'The provided URL is not valid'
-      });
-    }
-
-    // Call Remini enhancement with error handling
-    let enhancedImageUrl;
-    try {
-      enhancedImageUrl = await remini(url);
-    } catch (reminiError) {
-      console.error('Remini Enhancement Specific Error:', reminiError);
-      return res.status(500).json({
-        error: 'ENHANCEMENT_FAILED',
-        message: 'Failed to enhance the image',
-        details: reminiError.message || 'Unknown error occurred'
-      });
-    }
-
-    // Validate enhanced image URL
-    if (!enhancedImageUrl || !isValidUrl(enhancedImageUrl)) {
-      return res.status(500).json({
-        error: 'INVALID_RESULT',
-        message: 'Enhanced image URL is invalid'
-      });
-    }
-
-    // Get image size
-    const image_size = await getFileSize(enhancedImageUrl);
-
-    // Respond with enhanced image results
-    res.json({
-      image_data: enhancedImageUrl,
-      image_size: image_size
-    });
+    const result = await enhanceImage(url);
+    res.json(result);
   } catch (error) {
-    console.error('Unexpected Enhancement Error:', error);
-    res.status(500).json({ 
-      error: 'UNEXPECTED_ERROR',
-      message: 'An unexpected error occurred during image enhancement',
-      details: error.message || 'Unknown error'
+    console.error('Enhancement Error:', error);
+    res.status(400).json({ 
+      error: 'ENHANCEMENT_FAILED',
+      message: error.message || 'An unexpected error occurred'
+    });
+  }
+});
+
+// GET endpoint for image enhancement
+app.get('/enhance-image', async (req, res) => {
+  try {
+    const { url } = req.query;
+    const result = await enhanceImage(url);
+    res.json(result);
+  } catch (error) {
+    console.error('Enhancement Error:', error);
+    res.status(400).json({ 
+      error: 'ENHANCEMENT_FAILED',
+      message: error.message || 'An unexpected error occurred'
     });
   }
 });
